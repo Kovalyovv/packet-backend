@@ -1,13 +1,20 @@
 package ru.packet.models
 
+
+
 import org.jetbrains.exposed.sql.Table
-import org.jetbrains.exposed.sql.javatime.*
+import org.jetbrains.exposed.sql.javatime.timestamp
+import org.jetbrains.exposed.sql.javatime.CurrentTimestamp
 
-object User: Table("users") {
-
+object Users: Table("users" ) {
     val id = integer("id").autoIncrement()
     val name = varchar("name", 40)
     val email = varchar("email", 40).uniqueIndex()
     val passwordHash = text("password_hash")
-    val createdAt = datetime("created_at").defaultExpression(CurrentDateTime)
+    val role = text("role")
+
+    val createdAt = timestamp("created_at").defaultExpression(CurrentTimestamp())
+
+    override val primaryKey = PrimaryKey(id, name = "PK_Users_ID")
+
 }

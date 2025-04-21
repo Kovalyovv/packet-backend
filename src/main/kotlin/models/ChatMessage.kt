@@ -1,3 +1,12 @@
 package ru.packet.models
 
-data class ChatMessage()
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class ChatMessage(
+    val id: Int,
+    val groupId: Int,
+    val senderId: Int,
+    val text: String,
+    val timestamp: String
+)
