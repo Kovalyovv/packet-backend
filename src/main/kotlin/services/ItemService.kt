@@ -1,9 +1,6 @@
 package ru.packet.services
 
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.select
-import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import ru.packet.dto.ItemDTO
 import ru.packet.models.Items
@@ -64,4 +61,37 @@ class ItemService(private val database: Database) {
             }
         }
     }
+
+    fun searchItems(query: String): List<ItemDTO> {
+        return transaction {
+            Items.select { Items.name.lowerCase() like "%${query.lowercase()}%" }
+                .map {
+                    ItemDTO(
+                        id = it[Items.id],
+                        name = it[Items.name],
+                        barcode = it[Items.barcode],
+                        category = it[Items.category],
+                        price = it[Items.price]
+                    )
+                }
+        }
+    }
+
+    fun getItemById(itemId: Int): ItemDTO? {
+        return transaction {
+            Items.select { Items.id eq itemId }
+                .map {
+                    ItemDTO(
+                        id = it[Items.id],
+                        name = it[Items.name],
+                        barcode = it[Items.barcode],
+                        category = it[Items.category],
+                        price = it[Items.price]
+                    )
+                }.singleOrNull()
+        }
+    }
+
 }
+
+

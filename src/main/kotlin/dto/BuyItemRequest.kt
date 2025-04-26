@@ -6,5 +6,6 @@ import kotlinx.serialization.Serializable
 data class BuyItemRequest(
     val groupId: Int, // Добавляем groupId
     val boughtBy: Int,
-    val price: Int
+    val price: Int,
+    val quantity: Int
 )

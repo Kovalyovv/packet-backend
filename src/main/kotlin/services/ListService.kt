@@ -23,7 +23,7 @@ class ListService(private val database: Database) {
                 it[GroupListItems.quantity] = quantity
                 it[GroupListItems.priority] = priority
                 it[GroupListItems.budget] = budget
-                it[GroupListItems.isViewed] = false
+
             }[GroupListItems.id]
 
             // Извлекаем вставленную запись с JOIN на Items
@@ -40,53 +40,118 @@ class ListService(private val database: Database) {
                 quantity = insertedItem[GroupListItems.quantity],
                 priority = insertedItem[GroupListItems.priority],
                 budget = insertedItem[GroupListItems.budget],
-                isViewed = insertedItem[GroupListItems.isViewed]
+
             )
         }
     }
 
-    fun getItemsByGroupId(groupId: Int): List<GroupListItemDTO> {
-        return transaction(database) {
-            GroupListItems
-                .join(Items, JoinType.LEFT, additionalConstraint = { GroupListItems.itemId eq Items.id })
-                .select { GroupListItems.groupId eq groupId }
-                .map {
-                    GroupListItemDTO(
-                        id = it[GroupListItems.id],
-                        groupId = it[GroupListItems.groupId],
-                        itemId = it[GroupListItems.itemId],
-                        itemName = it[Items.name] ?: "Unknown", // Извлекаем название товара
-                        quantity = it[GroupListItems.quantity],
-                        priority = it[GroupListItems.priority],
-                        budget = it[GroupListItems.budget],
-                        isViewed = it[GroupListItems.isViewed]
-                    )
-                }
-        }
-    }
+//    fun getItemsByGroupId(groupId: Int): List<GroupListItemDTO> {
+//        return transaction(database) {
+//            GroupListItems
+//                .join(Items, JoinType.LEFT, additionalConstraint = { GroupListItems.itemId eq Items.id })
+//                .select { GroupListItems.groupId eq groupId }
+//                .map {
+//                    GroupListItemDTO(
+//                        id = it[GroupListItems.id],
+//                        groupId = it[GroupListItems.groupId],
+//                        itemId = it[GroupListItems.itemId],
+//                        itemName = it[Items.name] ?: "Unknown", // Извлекаем название товара
+//                        quantity = it[GroupListItems.quantity],
+//                        priority = it[GroupListItems.priority],
+//                        budget = it[GroupListItems.budget],
+//                        isViewed = it[GroupListItems.isViewed]
+//                    )
+//                }
+//        }
+//    }
+
+//    fun buyItem(groupListItemId: Int, buyRequest: BuyItemRequest) {
+//        transaction(database) {
+//            val listItem = GroupListItems.select { GroupListItems.id eq groupListItemId }.singleOrNull()
+//                ?: throw IllegalArgumentException("Товар не найден в списке группы")
+//
+//            if (listItem[GroupListItems.groupId] != buyRequest.groupId) {
+//                throw IllegalArgumentException("Товар с ID $groupListItemId не принадлежит группе ${buyRequest.groupId}")
+//            }
+//
+//            val remainingQuantity = listItem[GroupListItems.quantity] - buyRequest.quantity
+//            if (remainingQuantity < 0) {
+//                throw IllegalArgumentException("Нельзя купить больше, чем доступно (${listItem[GroupListItems.quantity]})")
+//            }
+//
+//            if (remainingQuantity == 0) {
+//                // Если всё количество куплено, удаляем запись
+//                GroupListItems.deleteWhere { GroupListItems.id eq groupListItemId }
+//            } else {
+//                // Если куплено частично, обновляем количество
+//                GroupListItems.update({ GroupListItems.id eq groupListItemId }) {
+//                    it[quantity] = remainingQuantity
+//                }
+//            }
+//
+//            // Ищем запись в Activities с типом ADDED
+//            val activity = Activities.select {
+//                (Activities.groupId eq buyRequest.groupId) and
+//                        (Activities.itemId eq listItem[GroupListItems.itemId]) and
+//                        (Activities.type eq "ADDED")
+//            }.firstOrNull()
+//
+//            if (activity != null) {
+//                // Если запись найдена, обновляем её
+//                Activities.update({ Activities.id eq activity[Activities.id] }) {
+//                    it[type] = "BOUGHT"
+//                    it[quantity] = buyRequest.quantity
+//                    it[price] = buyRequest.price
+//                    it[userId] = buyRequest.boughtBy
+//                    it[isViewed] = false
+//                }
+//            } else {
+//                // Если записи нет, создаём новую
+//                Activities.insert {
+//                    it[Activities.groupId] = buyRequest.groupId
+//                    it[Activities.userId] = buyRequest.boughtBy
+//                    it[Activities.itemId] = listItem[GroupListItems.itemId]
+//                    it[Activities.quantity] = buyRequest.quantity
+//                    it[Activities.price] = buyRequest.price
+//                    it[Activities.type] = "BOUGHT"
+//                    it[Activities.isViewed] = false
+//                }
+//            }
+//        }
+//    }
 
     fun markItemAsBought(itemId: Int, buyRequest: BuyItemRequest) {
         transaction(database) {
             val listItem = GroupListItems.select { GroupListItems.id eq itemId }.firstOrNull()
                 ?: throw IllegalArgumentException("Item with ID $itemId not found in group list")
 
-            // Проверяем, что groupId из BuyItemRequest совпадает с groupId товара
-            val actualGroupId = listItem[GroupListItems.groupId]
-            if (actualGroupId != buyRequest.groupId) {
+            if (listItem[GroupListItems.groupId] != buyRequest.groupId) {
                 throw IllegalArgumentException("Item with ID $itemId does not belong to group ${buyRequest.groupId}")
             }
 
-            // Удаляем товар из GroupListItems
-            GroupListItems.deleteWhere { GroupListItems.id eq itemId }
+            val remainingQuantity = listItem[GroupListItems.quantity] - buyRequest.quantity
+            if (remainingQuantity < 0) {
+                throw IllegalArgumentException("Cannot buy more than available quantity (${listItem[GroupListItems.quantity]})")
+            }
 
-            // Создаём запись в Activities с типом "BOUGHT"
+            if (remainingQuantity == 0) {
+                // Если всё количество куплено, удаляем запись
+                GroupListItems.deleteWhere { GroupListItems.id eq itemId }
+            } else {
+                // Если куплено частично, обновляем количество
+                GroupListItems.update({ GroupListItems.id eq itemId }) {
+                    it[quantity] = remainingQuantity
+                }
+            }
+
+            // Добавляем запись в Activities с типом BOUGHT
             Activities.insert {
-                it[Activities.groupId] = actualGroupId
+                it[Activities.groupId] = buyRequest.groupId
                 it[Activities.userId] = buyRequest.boughtBy
-                it[Activities.type] = "BOUGHT"
                 it[Activities.itemId] = listItem[GroupListItems.itemId]
-                it[Activities.quantity] = listItem[GroupListItems.quantity]
+                it[Activities.quantity] = buyRequest.quantity
                 it[Activities.price] = buyRequest.price
+                it[Activities.type] = "BOUGHT"
                 it[Activities.isViewed] = false
             }
         }

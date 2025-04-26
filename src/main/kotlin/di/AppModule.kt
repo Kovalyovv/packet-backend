@@ -9,9 +9,10 @@ val appModule = module {
     single<Database> { DatabaseConfig.init() }
     single { UserService(get()) }
     single { GroupService(get()) }
-    single { ActivityService(get()) } // Добавляем ActivityService
+    single { ActivityService(get()) }
     single { ItemService(get()) }
     single { ListService(get()) }
+    single { PersonalListService()}
     single { ReceiptService(get()) }
     single { ChatService(get()) }
 }

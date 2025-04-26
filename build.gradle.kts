@@ -34,6 +34,8 @@ dependencies {
     implementation("io.ktor:ktor-server-config-yaml")
     testImplementation("io.ktor:ktor-server-test-host")
 
+
+
     implementation("ch.qos.logback:logback-classic:1.5.6")
     implementation("ch.qos.logback:logback-classic:$logback_version")
 
@@ -46,8 +48,11 @@ dependencies {
     implementation("org.jetbrains.exposed:exposed-core:0.48.0")
     implementation("org.jetbrains.exposed:exposed-dao:0.48.0")
     implementation("org.jetbrains.exposed:exposed-jdbc:0.48.0")
-    implementation("org.jetbrains.exposed:exposed-java-time:0.44.1")
+    implementation("org.jetbrains.exposed:exposed-jodatime:0.48.0")
+//    implementation ("org.jetbrains.exposed:exposed-java-time:")
+    implementation ("joda-time:joda-time:2.12.5")
     implementation("org.postgresql:postgresql:42.7.2")
+
 
 
 

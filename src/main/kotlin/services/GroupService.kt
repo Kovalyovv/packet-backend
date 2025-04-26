@@ -1,5 +1,6 @@
 package ru.packet.services
 
+import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
@@ -14,10 +15,11 @@ class GroupService(private val database: Database) {
     fun createGroup(name: String, creatorId: Int, isPersonal: Boolean? = null): GroupDTO {
         return transaction(database) {
             // Вставляем новую группу и получаем её id
+            val code = generateInviteCode()
             val insertedGroup = Groups.insert {
                 it[Groups.name] = name
                 it[Groups.creatorId] = creatorId
-                it[Groups.inviteCode] = generateInviteCode()
+                it[Groups.inviteCode] = code
                 if (isPersonal != null) {
                     it[Groups.isPersonal] = isPersonal
                 }
@@ -38,7 +40,8 @@ class GroupService(private val database: Database) {
                 name = name,
                 members = listOf(creatorId),
                 isPersonal = insertedRow[Groups.isPersonal],
-                createdAt = insertedRow[Groups.createdAt].toString()
+                createdAt = insertedRow[Groups.createdAt].toString(),
+                inviteCode = code
             )
         }
     }
@@ -64,7 +67,8 @@ class GroupService(private val database: Database) {
                         name = row[Groups.name],
                         members = emptyList(), // Временно пустой список
                         isPersonal = row[Groups.isPersonal],
-                        createdAt = row[Groups.createdAt].toString()
+                        createdAt = row[Groups.createdAt].toString(),
+                        inviteCode = row[Groups.inviteCode]
                     )
                 }
                 .toMap()
@@ -83,7 +87,7 @@ class GroupService(private val database: Database) {
         }
     }
 
-    fun joinGroup(userId: Int, inviteCode: String): GroupDTO {
+    fun joinGroup(userId: Int, inviteCode: String): JoinGroupResponse {
         return transaction(database) {
             // Ищем группу по inviteCode
             val group = Groups.select { Groups.inviteCode eq inviteCode }.firstOrNull()
@@ -108,12 +112,11 @@ class GroupService(private val database: Database) {
                 .select { GroupMembers.group eq groupId }
                 .map { it[GroupMembers.user] }
 
-            GroupDTO(
-                id = groupId,
-                name = group[Groups.name],
-                members = members,
-                isPersonal = group[Groups.isPersonal],
-                createdAt = group[Groups.createdAt].toString()
+            // Формируем ответ в формате JoinGroupResponse
+            JoinGroupResponse(
+                groupId = groupId,
+                groupName = group[Groups.name],
+                message = "Пользователь $userId успешно вошел в группу №$groupId"
             )
         }
     }
@@ -182,3 +185,10 @@ class GroupService(private val database: Database) {
         return (1..10).map { chars.random() }.joinToString("")
     }
 }
+
+@Serializable
+data class JoinGroupResponse(
+    val groupId: Int,
+    val groupName: String,
+    val message: String
+)

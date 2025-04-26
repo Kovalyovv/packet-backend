@@ -3,8 +3,11 @@ package ru.packet.models
 
 
 import org.jetbrains.exposed.sql.Table
-import org.jetbrains.exposed.sql.javatime.timestamp
-import org.jetbrains.exposed.sql.javatime.CurrentTimestamp
+import org.jetbrains.exposed.sql.jodatime.datetime
+import org.jetbrains.exposed.sql.jodatime.timestampWithTimeZone
+import org.joda.time.DateTime
+import ru.packet.models.Groups.default
+
 
 object Users: Table("users" ) {
     val id = integer("id").autoIncrement()
@@ -13,7 +16,7 @@ object Users: Table("users" ) {
     val passwordHash = text("password_hash")
     val role = text("role")
 
-    val createdAt = timestamp("created_at").defaultExpression(CurrentTimestamp())
+    val createdAt = datetime("created_at").default(DateTime.now())
 
     override val primaryKey = PrimaryKey(id, name = "PK_Users_ID")
 

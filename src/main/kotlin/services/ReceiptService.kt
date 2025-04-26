@@ -3,6 +3,7 @@ package ru.packet.services
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.joda.time.DateTime
 import ru.packet.dto.ReceiptDTO
 import ru.packet.dto.ReceiptItemDTO
 import ru.packet.models.*
@@ -17,7 +18,7 @@ class ReceiptService(private val database: Database) {
                 it[Receipts.groupId] = groupId
                 it[Receipts.qrCode] = qrCode
                 it[Receipts.totalAmount] = totalAmount
-                it[Receipts.scannedAt] = java.time.Instant.parse(scannedAt)
+                it[Receipts.scannedAt] = DateTime.parse(scannedAt)
             }[Receipts.id]
 
             ReceiptDTO(

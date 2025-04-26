@@ -16,11 +16,11 @@ import io.ktor.server.plugins.statuspages.*
 import org.jetbrains.exposed.sql.Database
 import org.koin.ktor.ext.getKoin
 import org.koin.ktor.plugin.Koin
+import personalListRoutes
 import ru.packet.auth.JwtConfig
 
 import ru.packet.di.appModule
-import ru.packet.services.ActivityService
-import ru.packet.services.GroupService
+import ru.packet.services.*
 
 fun main() {
     embeddedServer(Netty, port = 8080, host = "0.0.0.0") {
@@ -76,10 +76,11 @@ fun Application.configureRouting() {
     routing {
         userRoutes(koin.get())
         groupRoutes(koin.get())
-        listRoutes(koin.get())
+        listRoutes(koin.get<ListService>(), koin.get<GroupService>())
         itemRoutes(koin.get())
         receiptRoutes(koin.get())
         activityRoutes(koin.get<ActivityService>(), koin.get<GroupService>())
+        personalListRoutes(koin.get<ItemService>(), koin.get<PersonalListService>())
         route("/chat") {
             authenticate("auth-jwt") {
                 chatRoutes(chatConnections, koin.get())

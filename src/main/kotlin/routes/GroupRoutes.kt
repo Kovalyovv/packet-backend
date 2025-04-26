@@ -28,6 +28,7 @@ fun Route.groupRoutes(groupService: GroupService) {
                 name = groupRequest.name,
                 creatorId = groupRequest.creatorId,
                 isPersonal = groupRequest.isPersonal
+
             )
             call.respond(HttpStatusCode.Created, groupDTO)
         }
@@ -45,16 +46,31 @@ fun Route.groupRoutes(groupService: GroupService) {
             call.respond(groupDTO)
         }
 
-        // Получение групп пользователя
-        get("/{userId}") {
-            val userId = call.parameters["userId"]?.toIntOrNull()
-                ?: return@get call.respond(HttpStatusCode.BadRequest, "Invalid userId")
 
-            val groupsDTO = groupService.getUserGroups(userId)
-            call.respond(groupsDTO)
-        }
+
 
         authenticate("auth-jwt") {
+            // Получение групп пользователя
+            get("/{userId}") {
+                val principal = call.principal<JWTPrincipal>()
+                val user_Id = principal?.payload?.getClaim("userId")?.asInt()
+                if (user_Id == null) {
+                    call.respond(HttpStatusCode.Unauthorized, ErrorResponse("Недействительный токен"))
+                    return@get
+                }
+                try{
+                    val userId = call.parameters["userId"]?.toIntOrNull()
+                        ?: return@get call.respond(HttpStatusCode.BadRequest, "Invalid userId")
+
+                    val groupsDTO = groupService.getUserGroups(userId)
+                    call.respond(groupsDTO)
+                }catch (e: Exception) {
+                    logger.error("Error getting groups of user: ${e.message}", e)
+                    call.respond(HttpStatusCode.InternalServerError, ErrorResponse("Ошибка сервера: ${e.message}"))
+                }
+
+            }
+
             get("/summaries") {
                 val principal = call.principal<JWTPrincipal>()
                 val userId = principal?.payload?.getClaim("userId")?.asInt()

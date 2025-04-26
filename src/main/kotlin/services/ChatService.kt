@@ -5,6 +5,7 @@ import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.joda.time.DateTime
 import ru.packet.dto.ChatMessageDTO
 import ru.packet.models.ChatMessages
 
@@ -37,7 +38,7 @@ class ChatService(private val database: Database) {
                 it[ChatMessages.groupId] = groupId
                 it[ChatMessages.senderId] = senderId
                 it[ChatMessages.text] = text
-                it[ChatMessages.timestamp] = java.time.Instant.parse(timestamp)
+                it[ChatMessages.timestamp] = DateTime.parse(timestamp)
             }[ChatMessages.id]
 
             ChatMessageDTO(

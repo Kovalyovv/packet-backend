@@ -10,6 +10,6 @@ object GroupListItems : Table("group_list_items") {
     val quantity = integer("quantity").default(1)
     val priority = integer("priority").default(0)
     val budget = integer("budget").nullable()
-    val isViewed = bool("is_viewed").default(false) // Добавляем флаг просмотра
+
     override val primaryKey = PrimaryKey(id, name = "PK_GroupListItems_ID")
 }

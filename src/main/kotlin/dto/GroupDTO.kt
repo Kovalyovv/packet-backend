@@ -8,7 +8,8 @@ data class GroupDTO(
     val name: String,
     val members: List<Int>,
     val isPersonal: Boolean,
-    val createdAt: String
+    val createdAt: String,
+    val inviteCode: String
 )
 
 @Serializable

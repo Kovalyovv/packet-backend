@@ -13,6 +13,7 @@ import ru.packet.dto.GroupSummaryDTO
 import ru.packet.services.ActivityService
 import ru.packet.services.GroupService
 import kotlinx.serialization.Serializable
+import ru.packet.dto.BuyItemRequest
 
 fun Route.activityRoutes(activityService: ActivityService, groupService: GroupService) {
     val logger = LoggerFactory.getLogger("ActivityRoutes")
@@ -88,7 +89,12 @@ fun Route.activityRoutes(activityService: ActivityService, groupService: GroupSe
                 }
 
                 try {
-                    activityService.buyItem(itemId, userId, groupId)
+                    val request = call.receive<BuyItemRequest>()
+                    if (request.boughtBy != userId) {
+                        call.respond(HttpStatusCode.Forbidden, ErrorResponse("Недостаточно прав для покупки"))
+                        return@post
+                    }
+                    activityService.buyItem(itemId, request)
                     call.respond(HttpStatusCode.OK, SuccessResponse("Товар куплен"))
                 } catch (e: Exception) {
                     logger.error("Buy item error: ${e.message}", e)
@@ -114,6 +120,25 @@ fun Route.activityRoutes(activityService: ActivityService, groupService: GroupSe
                 val request = call.receive<MarkViewedRequest>()
                 activityService.markItemsAsViewed(groupId, request.itemIds)
                 call.respond(HttpStatusCode.OK, SuccessResponse("Товары отмечены как просмотренные"))
+            }
+
+            post("/{groupId}/mark-all-viewed") {
+                val principal = call.principal<JWTPrincipal>()
+                val userId = principal?.payload?.getClaim("userId")?.asInt()
+                val groupId = call.parameters["groupId"]?.toIntOrNull()
+                if (userId == null || groupId == null) {
+                    call.respond(HttpStatusCode.BadRequest, ErrorResponse("Неверный запрос"))
+                    return@post
+                }
+
+                val groups = groupService.getUserGroups(userId)
+                if (groups.none { it.id == groupId }) {
+                    call.respond(HttpStatusCode.Forbidden, ErrorResponse("Доступ к группе запрещён"))
+                    return@post
+                }
+
+                activityService.markAllActivitiesAsViewed(groupId)
+                call.respond(HttpStatusCode.OK, SuccessResponse("Все активности отмечены как просмотренные"))
             }
         }
     }
