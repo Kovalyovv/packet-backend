@@ -1,30 +1,30 @@
 package ru.packet.services
 
+import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
-import org.jetbrains.exposed.sql.and
-import org.jetbrains.exposed.sql.deleteWhere
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.transactions.transaction
-import ru.packet.dto.PersonalListItem
-import ru.packet.models.PersonalListItems
 import org.joda.time.DateTime
 import org.joda.time.DateTimeZone
+import ru.packet.dto.PersonalListItem
+import ru.packet.dto.ProcessedCheckItem
 import ru.packet.dto.PurchaseHistoryItem
+import ru.packet.models.Items
+import ru.packet.models.PersonalListItems
 import ru.packet.models.PersonalPurchaseHistory
 
-
 class PersonalListService {
+
     fun getPersonalList(userId: Int): List<PersonalListItem> {
         return transaction {
             PersonalListItems.select { PersonalListItems.userId eq userId }
                 .map {
-                    val addedAtFromDb = it[PersonalListItems.addedAt] // Это org.joda.time.DateTime
+                    val addedAtFromDb = it[PersonalListItems.addedAt]
                     PersonalListItem(
                         id = it[PersonalListItems.id],
                         itemId = it[PersonalListItems.itemId],
                         itemName = it[PersonalListItems.itemName],
                         quantity = it[PersonalListItems.quantity],
+                        price = it[PersonalListItems.price],
                         addedAt = addedAtFromDb
                             .withZone(DateTimeZone.forID("Europe/Moscow"))
                             .toString()
@@ -33,21 +33,57 @@ class PersonalListService {
         }
     }
 
-    fun addItemToPersonalList(userId: Int, itemId: Int, itemName: String, quantity: Int): PersonalListItem {
+    fun getPersonalListItems(userId: Int): List<ProcessedCheckItem> {
         return transaction {
+            PersonalListItems.select { PersonalListItems.userId eq userId }
+                .map {
+                    ProcessedCheckItem(
+                        name = it[PersonalListItems.itemName],
+                        price = it[PersonalListItems.price],
+                        quantity = it[PersonalListItems.quantity].toDouble()
+                    )
+                }
+        }
+    }
+
+    fun addItemToPersonalList(
+        userId: Int,
+        itemId: Int?,
+        itemName: String,
+        quantity: Int,
+        priceItem: Int
+    ): PersonalListItem {
+
+        println("Adding item to personal list: userId=$userId, itemId=$itemId, itemName=$itemName, quantity=$quantity, price=$priceItem")
+        return transaction {
+            // Ищем товар в таблице items по имени
+            val existingItem = Items.select { Items.name eq itemName }.firstOrNull()
+            println("Existing item: $existingItem")
+
+            // Если товар найден, используем его id, иначе создаём новый
+            val actualItemId = existingItem?.get(Items.id) ?: Items.insert {
+                it[name] = itemName
+                it[price] = price
+            }[Items.id]
+            println("Actual itemId: $actualItemId")
+
+            // Добавляем товар в personal_list_items с найденным или новым itemId
             val newItem = PersonalListItems.insert {
                 it[PersonalListItems.userId] = userId
-                it[PersonalListItems.itemId] = itemId
+                it[PersonalListItems.itemId] = actualItemId
                 it[PersonalListItems.itemName] = itemName
                 it[PersonalListItems.quantity] = quantity
-                it[addedAt] = DateTime.now().withZone(DateTimeZone.UTC) // Сохраняем в UTC
+                it[PersonalListItems.price] = priceItem
+                it[addedAt] = DateTime.now().withZone(DateTimeZone.UTC)
             }.resultedValues!!.first()
+            println("New item inserted: $newItem")
 
             PersonalListItem(
                 id = newItem[PersonalListItems.id],
                 itemId = newItem[PersonalListItems.itemId],
                 itemName = newItem[PersonalListItems.itemName],
                 quantity = newItem[PersonalListItems.quantity],
+                price = newItem[PersonalListItems.price],
                 addedAt = newItem[PersonalListItems.addedAt]
                     .withZone(DateTimeZone.forID("Europe/Moscow"))
                     .toString()
@@ -55,20 +91,20 @@ class PersonalListService {
         }
     }
 
-    fun markAsPurchased(userId: Int, itemId: Int, price: Int): Boolean {
+    fun markAsPurchased(userId: Int, itemId: Int): Boolean {
         return transaction {
             // Находим элемент в личном списке
             val item = PersonalListItems.select {
                 (PersonalListItems.id eq itemId) and (PersonalListItems.userId eq userId)
             }.firstOrNull() ?: return@transaction false
 
-            // Добавляем в историю покупок
+            // Добавляем в историю покупок с ценой из personalListItems
             PersonalPurchaseHistory.insert {
                 it[PersonalPurchaseHistory.userId] = userId
                 it[PersonalPurchaseHistory.itemId] = item[PersonalListItems.itemId]
                 it[PersonalPurchaseHistory.itemName] = item[PersonalListItems.itemName]
                 it[PersonalPurchaseHistory.quantity] = item[PersonalListItems.quantity]
-                it[PersonalPurchaseHistory.price] = price
+                it[PersonalPurchaseHistory.price] = item[PersonalListItems.price]
                 it[purchasedAt] = DateTime.now().withZone(DateTimeZone.UTC)
             }
 
@@ -81,7 +117,9 @@ class PersonalListService {
 
     fun getPurchaseHistory(userId: Int): List<PurchaseHistoryItem> {
         return transaction {
-            PersonalPurchaseHistory.select { PersonalPurchaseHistory.userId eq userId }
+            PersonalPurchaseHistory
+                .select { PersonalPurchaseHistory.userId eq userId }
+                .orderBy(PersonalPurchaseHistory.purchasedAt to SortOrder.DESC)
                 .map {
                     PurchaseHistoryItem(
                         id = it[PersonalPurchaseHistory.id],
@@ -97,4 +135,3 @@ class PersonalListService {
         }
     }
 }
-

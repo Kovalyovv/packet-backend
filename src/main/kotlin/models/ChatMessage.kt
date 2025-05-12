@@ -8,5 +8,6 @@ data class ChatMessage(
     val groupId: Int,
     val senderId: Int,
     val text: String,
-    val timestamp: String
+    val timestamp: String,
+    val replyToId: Int? = null // Новое поле для ответа на сообщение
 )

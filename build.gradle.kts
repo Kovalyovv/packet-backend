@@ -22,38 +22,46 @@ repositories {
 }
 
 dependencies {
+    // Ktor client dependencies (приводим версии к 2.3.8 для согласованности с серверными зависимостями)
+    implementation("io.ktor:ktor-client-core:2.3.8")
+    implementation("io.ktor:ktor-client-cio:2.3.8")
+    implementation("io.ktor:ktor-client-content-negotiation:2.3.8") // Добавляем эту зависимость
+    implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.8")
+
+    // Ktor server dependencies
     implementation("io.ktor:ktor-server-status-pages:2.3.8")
-    implementation("io.ktor:ktor-server-content-negotiation")
-    implementation("io.ktor:ktor-server-websockets")
+    implementation("io.ktor:ktor-server-content-negotiation:2.3.8")
+    implementation("io.ktor:ktor-server-websockets:2.3.8")
     implementation("io.ktor:ktor-server-auth:2.3.8")
     implementation("io.ktor:ktor-server-auth-jwt:2.3.8")
     implementation("io.ktor:ktor-server-core:2.3.8")
     implementation("io.ktor:ktor-server-netty:2.3.8")
-    implementation("io.ktor:ktor-serialization-kotlinx-json")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.8")
+    implementation("io.ktor:ktor-server-config-yaml:2.3.8")
+    testImplementation("io.ktor:ktor-server-test-host:2.3.8")
+
+    // JWT
     implementation("io.jsonwebtoken:jjwt:0.12.6")
-    implementation("io.ktor:ktor-server-config-yaml")
-    testImplementation("io.ktor:ktor-server-test-host")
 
-
-
-    implementation("ch.qos.logback:logback-classic:1.5.6")
+    // Logging
     implementation("ch.qos.logback:logback-classic:$logback_version")
 
+    // Database
     implementation("com.zaxxer:HikariCP:5.1.0")
-    implementation("io.insert-koin:koin-ktor:3.5.6")
-    implementation("io.insert-koin:koin-core:3.5.6")
-    implementation ("org.mindrot:jbcrypt:0.4")
-
-    testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
     implementation("org.jetbrains.exposed:exposed-core:0.48.0")
     implementation("org.jetbrains.exposed:exposed-dao:0.48.0")
     implementation("org.jetbrains.exposed:exposed-jdbc:0.48.0")
     implementation("org.jetbrains.exposed:exposed-jodatime:0.48.0")
-//    implementation ("org.jetbrains.exposed:exposed-java-time:")
-    implementation ("joda-time:joda-time:2.12.5")
+    implementation("joda-time:joda-time:2.12.5")
     implementation("org.postgresql:postgresql:42.7.2")
 
+    // Koin
+    implementation("io.insert-koin:koin-ktor:3.5.6")
+    implementation("io.insert-koin:koin-core:3.5.6")
 
+    // Other
+    implementation("org.mindrot:jbcrypt:0.4")
 
-
+    // Test
+    testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
 }

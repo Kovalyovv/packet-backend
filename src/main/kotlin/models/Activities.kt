@@ -9,7 +9,7 @@ import org.joda.time.DateTime
 
 object Activities : Table("activities") {
     val id = integer("id").autoIncrement()
-    val groupId = reference("group_id", Groups.id, onDelete = ReferenceOption.CASCADE)
+    val groupId = reference("group_id", Groups.id, onDelete = ReferenceOption.CASCADE).nullable()
     val userId = reference("user_id", Users.id, onDelete = ReferenceOption.CASCADE)
     val type = varchar("type", 20) // "ADDED" или "BOUGHT"
     val itemId = integer("item_id").references(Items.id)

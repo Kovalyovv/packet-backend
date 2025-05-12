@@ -30,9 +30,19 @@ object DatabaseConfig {
 
             transaction(database) {
                 SchemaUtils.create(
-                    Users, Groups, GroupMembers, Items,
+                    Users,
+                    Groups,
+                    GroupMembers,
+                    Items,
                     GroupListItems,
-                    Receipts, ReceiptItems, ChatMessages, Activities
+                    Receipts,
+                    ReceiptItems,
+                    ChatMessages,
+                    Activities,
+//                    ReceiptHistory,
+                    PersonalListItems,
+                    PersonalPurchaseHistory,
+                    GroupPurchaseHistory
                 )
             }
 

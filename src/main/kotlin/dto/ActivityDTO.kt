@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class ActivityDTO(
     val id: Int,
-    val groupId: Int,
+    val groupId: Int?,
     val userId: Int,
     val userName: String,
     val type: String,

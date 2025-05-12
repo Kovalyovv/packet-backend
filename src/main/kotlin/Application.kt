@@ -1,5 +1,6 @@
 package ru.packet
 
+import io.ktor.client.*
 import io.ktor.http.*
 import ru.packet.routes.*
 import io.ktor.server.application.*
@@ -13,6 +14,7 @@ import io.ktor.server.auth.jwt.*
 import io.ktor.websocket.*
 import java.util.concurrent.ConcurrentHashMap
 import io.ktor.server.plugins.statuspages.*
+import io.ktor.server.request.*
 import org.jetbrains.exposed.sql.Database
 import org.koin.ktor.ext.getKoin
 import org.koin.ktor.plugin.Koin
@@ -28,8 +30,10 @@ fun main() {
         configureSerialization()
         configureDatabase()
         configureAuthentication()
+        configureSockets()
         configureRouting()
         configureStatusPages()
+
     }.start(wait = true)
 }
 
@@ -68,17 +72,22 @@ fun Application.configureDatabase() {
 fun Application.configureRouting() {
     val chatConnections = ConcurrentHashMap<Int, MutableList<WebSocketSession>>()
 
-    install(WebSockets)
+
 
     // Получаем Koin-инстанс вручную
     val koin = getKoin()
 
     routing {
+        println("Registering routes")
+        intercept(ApplicationCallPipeline.Call) {
+            println("Received request: ${call.request.uri} with method ${call.request.httpMethod.value}")
+            proceed()
+        }
         userRoutes(koin.get())
         groupRoutes(koin.get())
         listRoutes(koin.get<ListService>(), koin.get<GroupService>())
         itemRoutes(koin.get())
-        receiptRoutes(koin.get())
+        receiptRoutes(koin.get<ReceiptService>(), koin.get<HttpClient>()) // Передаём оба параметра
         activityRoutes(koin.get<ActivityService>(), koin.get<GroupService>())
         personalListRoutes(koin.get<ItemService>(), koin.get<PersonalListService>())
         route("/chat") {

@@ -43,6 +43,21 @@ fun Route.itemRoutes(itemService: ItemService) {
                 val items = itemService.getAllItems()
                 call.respond(items)
             }
+            get("/{itemId}") {
+
+                val itemId = call.parameters["itemId"]?.toIntOrNull()
+                    ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing barcode")
+                try {
+                    val item = itemService.getItemById(itemId)
+                    if (item == null) {
+                        call.respond(HttpStatusCode.NotFound, "Item not found")
+                    } else {
+                        call.respond(item)
+                    }
+                } catch (e: IllegalArgumentException) {
+                    call.respond(HttpStatusCode.BadRequest, e.message ?: "Invalid itemId")
+                }
+            }
 
             get("/barcode/{barcode}") {
                 val barcode = call.parameters["barcode"]

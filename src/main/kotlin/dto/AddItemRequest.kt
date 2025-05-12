@@ -3,11 +3,9 @@ package ru.packet.dto
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class PersonalListItem(
-    val id: Int,
-    val itemId: Int,
+data class AddItemRequest(
+    val itemId: Int? = null,
     val itemName: String,
     val quantity: Int,
-    val price: Int,
-    val addedAt: String
+    val price: Int
 )

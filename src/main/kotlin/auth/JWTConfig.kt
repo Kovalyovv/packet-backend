@@ -13,8 +13,8 @@ object JwtConfig {
     private const val AUDIENCE = "http://localhost:8080/"
     const val REALM = "Access to protected routes"
 
-    // Время жизни access token (5 минут)
-    private const val ACCESS_TOKEN_VALIDITY_MS = 5 * 60 * 1000L
+    // Время жизни access token (15 минут)
+    private const val ACCESS_TOKEN_VALIDITY_MS = 15 * 60 * 1000L
     // Время жизни refresh token (30 дней)
     private const val REFRESH_TOKEN_VALIDITY_MS = 30 * 24 * 60 * 60 * 1000L
 

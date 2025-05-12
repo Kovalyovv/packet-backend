@@ -7,6 +7,7 @@ import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.jodatime.datetime
 import org.jetbrains.exposed.sql.jodatime.timestampWithTimeZone
 import org.joda.time.DateTime
+import org.joda.time.DateTimeZone
 import ru.packet.models.Groups.default
 
 object Receipts : Table("receipts") {
@@ -15,7 +16,7 @@ object Receipts : Table("receipts") {
     val groupId = reference("group_id", Groups.id, onDelete = ReferenceOption.CASCADE)
     val qrCode = text("qr_code")
     val totalAmount = integer("total_amount").nullable()
-    val scannedAt = datetime("scanned_at").default(DateTime.now())
+    val scannedAt = datetime("scanned_at").default(DateTime.now(DateTimeZone.UTC))
 
     override val primaryKey = PrimaryKey(id, name = "PK_Receipts_ID")
 }

@@ -15,45 +15,55 @@ fun Route.chatRoutes(
     chatConnections: ConcurrentHashMap<Int, MutableList<WebSocketSession>>,
     chatService: ChatService
 ) {
-    route("/chat") {
-        // Получение истории сообщений
-        get("/{groupId}/messages") {
-            val groupId = call.parameters["groupId"]?.toIntOrNull()
-                ?: return@get call.respond(HttpStatusCode.BadRequest, "Invalid groupId")
-            val messages = chatService.getMessagesByGroupId(groupId)
-            call.respond(messages)
-        }
+    get("/{groupId}/messages") {
+        val groupId = call.parameters["groupId"]?.toIntOrNull()
+            ?: return@get call.respond(HttpStatusCode.BadRequest, "Invalid groupId")
+        val messages = chatService.getMessagesByGroupId(groupId)
+        call.respond(messages)
+    }
 
-        // WebSocket для чата
-        webSocket("/{groupId}") {
-            val groupId = call.parameters["groupId"]?.toIntOrNull()
-                ?: return@webSocket close(CloseReason(CloseReason.Codes.CANNOT_ACCEPT, "Missing groupId"))
+    delete("/{messageId}") {
+        val messageId = call.parameters["messageId"]?.toIntOrNull()
+            ?: return@delete call.respond(HttpStatusCode.BadRequest, "Invalid messageId")
+        chatService.deleteMessage(messageId)
+        call.respond(HttpStatusCode.OK, "Message deleted")
+    }
 
-            val connections = chatConnections.getOrPut(groupId) { mutableListOf() }
-            connections.add(this)
+    webSocket("/{groupId}") {
+        val groupId = call.parameters["groupId"]?.toIntOrNull()
+            ?: return@webSocket close(CloseReason(CloseReason.Codes.CANNOT_ACCEPT, "Missing groupId"))
 
-            try {
-                for (frame in incoming) {
-                    if (frame is Frame.Text) {
-                        val messageText = frame.readText()
-                        val message = Json.decodeFromString(ChatMessageDTO.serializer(), messageText)
+        println("WebSocket connected for group $groupId")
+        val connections = chatConnections.getOrPut(groupId) { mutableListOf() }
+        connections.add(this)
 
-                        // Сохраняем сообщение в базе
-                        val savedMessage = chatService.saveMessage(
-                            groupId = message.groupId,
-                            senderId = message.senderId,
-                            text = message.text,
-                            timestamp = message.timestamp
-                        )
+        try {
+            for (frame in incoming) {
+                if (frame is Frame.Text) {
+                    val messageText = frame.readText()
+                    println("Received message: $messageText")
+                    val message = Json.decodeFromString(ChatMessageDTO.serializer(), messageText)
 
-                        // Отправляем обновлённое сообщение всем участникам группы
-                        val updatedMessageText = Json.encodeToString(ChatMessageDTO.serializer(), savedMessage)
-                        connections.forEach { it.send(Frame.Text(updatedMessageText)) }
+                    val savedMessage = chatService.saveMessage(
+                        groupId = message.groupId,
+                        senderId = message.senderId,
+                        text = message.text,
+                        timestamp = message.timestamp,
+                        replyToId = message.replyToId,
+                        tempId = message.id
+                    )
+                    println("Saved message: $savedMessage")
+
+                    val updatedMessageText = Json.encodeToString(ChatMessageDTO.serializer(), savedMessage)
+                    connections.forEach {
+                        it.send(Frame.Text(updatedMessageText))
+                        println("Sent message to connection: $updatedMessageText")
                     }
                 }
-            } finally {
-                connections.remove(this)
             }
+        } finally {
+            connections.remove(this)
+            println("WebSocket disconnected for group $groupId")
         }
     }
 }

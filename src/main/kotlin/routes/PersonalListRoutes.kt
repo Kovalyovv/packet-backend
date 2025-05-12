@@ -20,7 +20,9 @@ import ru.packet.services.PersonalListService
 fun Route.personalListRoutes(itemService: ItemService, personalListService: PersonalListService) {
     route("/personal-list") {
         authenticate("auth-jwt") {
+            println("Authenticated /personal-list route")
             get {
+                println("Handling GET /personal-list")
                 val principal = call.principal<JWTPrincipal>()
                 val userId = principal?.payload?.getClaim("userId")?.asInt()
                     ?: return@get call.respond(HttpStatusCode.Unauthorized, ErrorResponse("Токен недействителен"))
@@ -28,31 +30,57 @@ fun Route.personalListRoutes(itemService: ItemService, personalListService: Pers
                 val personalList = personalListService.getPersonalList(userId)
                 call.respond(personalList)
             }
+            get("/{userId}") {
+                println("Handling GET /personal-list/{userId}")
+                val principal = call.principal<JWTPrincipal>()
+                val userId = principal?.payload?.getClaim("userId")?.asInt()
+                    ?: return@get call.respond(HttpStatusCode.Unauthorized, ErrorResponse("Токен недействителен"))
+
+                val personalList = personalListService.getPersonalListItems(userId)
+                call.respond(personalList)
+            }
 
             post {
+                println("Handling POST /personal-list")
                 val principal = call.principal<JWTPrincipal>()
                 val userId = principal?.payload?.getClaim("userId")?.asInt()
                     ?: return@post call.respond(HttpStatusCode.Unauthorized, ErrorResponse("Токен недействителен"))
 
-                val request = call.receive<Map<String, Int>>()
-                val itemId = request["itemId"] ?: return@post call.respond(
-                    HttpStatusCode.BadRequest,
-                    ErrorResponse("itemId отсутствует")
+                val request = call.receive<AddItemRequest>()
+                println("Received AddItemRequest: $request")
+                val newItem = personalListService.addItemToPersonalList(
+                    userId = userId,
+                    itemId = request.itemId, // itemId теперь может быть null
+                    itemName = request.itemName,
+                    quantity = request.quantity,
+                    priceItem = request.price
                 )
-                val quantity = request["quantity"] ?: return@post call.respond(
-                    HttpStatusCode.BadRequest,
-                    ErrorResponse("quantity отсутствует")
-                )
-
-                val item = itemService.getItemById(itemId)
-                    ?: return@post call.respond(HttpStatusCode.NotFound, ErrorResponse("Товар не найден"))
-
-                val newItem = personalListService.addItemToPersonalList(userId, itemId, item.name, quantity)
                 call.respond(HttpStatusCode.Created, newItem)
+            }
+
+            // Новый маршрут для массового добавления
+            post("/add-items") {
+
+                val principal = call.principal<JWTPrincipal>()
+                val userId = principal?.payload?.getClaim("userId")?.asInt()
+                    ?: return@post call.respond(HttpStatusCode.Unauthorized, ErrorResponse("Токен недействителен"))
+
+                val request = call.receive<List<AddItemRequest>>()
+                request.forEach { item ->
+                    personalListService.addItemToPersonalList(
+                        userId = userId,
+                        itemId = item.itemId,
+                        itemName = item.itemName,
+                        quantity = item.quantity,
+                        priceItem = item.price
+                    )
+                }
+                call.respond(HttpStatusCode.OK, "Items added successfully")
             }
 
             // Маршрут для пометки товара как купленного
             post("/{id}/mark-purchased") {
+                println("Handling POST /personal-list/{id}/mark-purchased")
                 val principal = call.principal<JWTPrincipal>()
                 val userId = principal?.payload?.getClaim("userId")?.asInt()
                     ?: return@post call.respond(HttpStatusCode.Unauthorized, ErrorResponse("Токен недействителен"))
@@ -60,10 +88,7 @@ fun Route.personalListRoutes(itemService: ItemService, personalListService: Pers
                 val itemId = call.parameters["id"]?.toIntOrNull()
                     ?: return@post call.respond(HttpStatusCode.BadRequest, ErrorResponse("id отсутствует"))
 
-                val request = call.receive<Map<String, Int>>()
-                val price = request["price"] ?: return@post call.respond(HttpStatusCode.BadRequest, ErrorResponse("price отсутствует"))
-
-                val success = personalListService.markAsPurchased(userId, itemId, price)
+                val success = personalListService.markAsPurchased(userId, itemId)
                 if (success) {
                     call.respond(HttpStatusCode.OK, mapOf("message" to "Товар помечен как купленный"))
                 } else {

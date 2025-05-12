@@ -5,7 +5,10 @@ import org.jetbrains.exposed.sql.Table
 
 import org.jetbrains.exposed.sql.jodatime.datetime
 import org.jetbrains.exposed.sql.jodatime.timestampWithTimeZone
+import org.joda.time.DateTime
+import org.joda.time.DateTimeZone
 import ru.packet.models.ChatMessages.defaultExpression
+import ru.packet.models.Receipts.default
 
 object GroupPurchaseHistory : Table("group_purchase_history") {
     val id = integer("id").autoIncrement()
@@ -14,7 +17,7 @@ object GroupPurchaseHistory : Table("group_purchase_history") {
     val boughtBy = integer("bought_by").references(Users.id)
     val quantity = integer("quantity")
     val price = integer("price").nullable()
-    val purchasedAt = datetime("purchased_at").defaultExpression(timestampWithTimeZone("GMT+3"))
+    val purchasedAt = datetime("purchased_at").default(DateTime.now(DateTimeZone.UTC))
 
     override val primaryKey = PrimaryKey(id, name = "PK_GroupPurchaseHistory_ID")
 }

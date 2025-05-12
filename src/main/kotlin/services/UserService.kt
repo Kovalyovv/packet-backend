@@ -3,6 +3,7 @@ package ru.packet.services
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
+import org.joda.time.DateTimeZone
 import org.mindrot.jbcrypt.BCrypt
 import ru.packet.dto.ItemDTO
 import ru.packet.dto.UserDTO
@@ -20,7 +21,7 @@ class UserService(private val database: Database) {
                 it[Users.email] = email
                 it[Users.passwordHash] = hashedPassword
                 it[Users.role] = role
-                it[Users.createdAt] = DateTime.now()
+                it[Users.createdAt] = DateTime.now(DateTimeZone.UTC)
             }[Users.id]
 
             val user = Users.select { Users.id eq userId }.first()
