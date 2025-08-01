@@ -28,7 +28,6 @@ data class UserLoginRequest(
 
 )
 
-// Модели данных
 @Serializable
 data class ForgotPasswordRequest(val email: String)
 

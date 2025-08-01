@@ -78,10 +78,8 @@ class ReceiptService(private val database: Database) {
         if (qrCode.isBlank()) throw IllegalArgumentException("QR code cannot be blank")
 
         return transaction(database) {
-            // Проверяем, существует ли чек с таким QR-кодом
             val existingReceipt = Receipts.select { Receipts.qrCode eq qrCode }.firstOrNull()
             if (existingReceipt != null) {
-                // Чек уже существует, возвращаем его данные
                 val receiptId = existingReceipt[Receipts.id]
                 val receiptItems = ReceiptItems.select { ReceiptItems.receiptId eq receiptId }
                     .map {
@@ -160,6 +158,7 @@ class ReceiptService(private val database: Database) {
                 if (item.name.isBlank()) throw IllegalArgumentException("Item name cannot be blank")
                 if (item.quantity <= 0) throw IllegalArgumentException("Quantity must be positive")
                 if (item.price < 0) throw IllegalArgumentException("Price cannot be negative")
+
 
                 ReceiptItems.insert {
                     it[ReceiptItems.receiptId] = receiptId
@@ -352,6 +351,40 @@ class ReceiptService(private val database: Database) {
 
             Receipts.update({ Receipts.id eq receiptId }) {
                 it[Receipts.groupId] = groupId
+            }
+        }
+    }
+
+    fun markItemAsBought(itemId: Int, buyRequest: BuyItemRequest) {
+        transaction(database) {
+            val listItem = GroupListItems.select { GroupListItems.id eq itemId }.firstOrNull()
+                ?: throw IllegalArgumentException("Item with ID $itemId not found in group list")
+
+            if (listItem[GroupListItems.groupId] != buyRequest.groupId) {
+                throw IllegalArgumentException("Item with ID $itemId does not belong to group ${buyRequest.groupId}")
+            }
+
+            val remainingQuantity = listItem[GroupListItems.quantity] - buyRequest.quantity
+            if (remainingQuantity < 0) {
+                throw IllegalArgumentException("Cannot buy more than available quantity (${listItem[GroupListItems.quantity]})")
+            }
+
+            if (remainingQuantity == 0) {
+                GroupListItems.deleteWhere { GroupListItems.id eq itemId }
+            } else {
+                GroupListItems.update({ GroupListItems.id eq itemId }) {
+                    it[quantity] = remainingQuantity
+                }
+            }
+
+            Activities.insert {
+                it[Activities.groupId] = buyRequest.groupId
+                it[Activities.userId] = buyRequest.boughtBy
+                it[Activities.itemId] = listItem[GroupListItems.itemId]
+                it[Activities.quantity] = buyRequest.quantity
+                it[Activities.price] = buyRequest.price
+                it[Activities.type] = "BOUGHT"
+                it[Activities.isViewed] = false
             }
         }
     }

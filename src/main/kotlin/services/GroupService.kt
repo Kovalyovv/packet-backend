@@ -8,13 +8,13 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import ru.packet.dto.ActivityDTO
 import ru.packet.dto.GroupDTO
 import ru.packet.dto.GroupSummaryDTO
+import ru.packet.dto.UserDTO
 import ru.packet.models.*
 
 class GroupService(private val database: Database) {
 
     fun createGroup(name: String, creatorId: Int, isPersonal: Boolean? = null): GroupDTO {
         return transaction(database) {
-            // Вставляем новую группу и получаем её id
             val code = generateInviteCode()
             val insertedGroup = Groups.insert {
                 it[Groups.name] = name
@@ -25,11 +25,9 @@ class GroupService(private val database: Database) {
                 }
             }
 
-            // Извлекаем id и другие поля из результата вставки
             val groupId = insertedGroup[Groups.id]
             val insertedRow = Groups.select { Groups.id eq groupId }.first()
 
-            // Добавляем создателя в группу
             GroupMembers.insert {
                 it[GroupMembers.group] = groupId
                 it[GroupMembers.user] = creatorId
@@ -57,7 +55,6 @@ class GroupService(private val database: Database) {
 
     fun getUserGroups(userId: Int): List<GroupDTO> {
         return transaction(database) {
-            // Получаем все группы пользователя
             val groups = Groups
                 .join(GroupMembers, JoinType.INNER, additionalConstraint = { Groups.id eq GroupMembers.group })
                 .select { GroupMembers.user eq userId }
@@ -65,7 +62,7 @@ class GroupService(private val database: Database) {
                     row[Groups.id] to GroupDTO(
                         id = row[Groups.id],
                         name = row[Groups.name],
-                        members = emptyList(), // Временно пустой список
+                        members = emptyList(),
                         isPersonal = row[Groups.isPersonal],
                         createdAt = row[Groups.createdAt].toString(),
                         inviteCode = row[Groups.inviteCode]
@@ -73,14 +70,12 @@ class GroupService(private val database: Database) {
                 }
                 .toMap()
 
-            // Получаем всех участников для групп одним запросом
             val groupIds = groups.keys
             val membersByGroup = GroupMembers
                 .select { GroupMembers.group inList groupIds }
                 .groupBy { it[GroupMembers.group] }
                 .mapValues { entry -> entry.value.map { it[GroupMembers.user] } }
 
-            // Обновляем список участников в GroupDTO
             groups.map { (groupId, groupDTO) ->
                 groupDTO.copy(members = membersByGroup[groupId] ?: emptyList())
             }
@@ -89,30 +84,24 @@ class GroupService(private val database: Database) {
 
     fun joinGroup(userId: Int, inviteCode: String): JoinGroupResponse {
         return transaction(database) {
-            // Ищем группу по inviteCode
             val group = Groups.select { Groups.inviteCode eq inviteCode }.firstOrNull()
                 ?: throw IllegalArgumentException("Group with invite code $inviteCode not found")
 
             val groupId = group[Groups.id]
 
-            // Проверяем, не состоит ли пользователь уже в группе
             val alreadyMember = GroupMembers.select {
                 (GroupMembers.group eq groupId) and (GroupMembers.user eq userId)
             }.count() > 0
 
             if (alreadyMember) {
-                throw IllegalArgumentException("User $userId is already a member of group $groupId")
+                throw IllegalStateException("User $userId is already a member of group $groupId")
             }
 
-            // Добавляем пользователя в группу
             addUserToGroup(groupId, userId)
-
-            // Получаем обновлённый список участников
             val members = GroupMembers
                 .select { GroupMembers.group eq groupId }
                 .map { it[GroupMembers.user] }
 
-            // Формируем ответ в формате JoinGroupResponse
             JoinGroupResponse(
                 groupId = groupId,
                 groupName = group[Groups.name],
@@ -121,12 +110,11 @@ class GroupService(private val database: Database) {
         }
     }
 
-
     fun getGroupSummaries(userId: Int, groupIds: List<Int>): List<GroupSummaryDTO> {
         if (groupIds.isEmpty()) return emptyList()
 
         return transaction(database) {
-            // Получаем все группы одним запросом
+
             val groupsMap = Groups
                 .select { Groups.id inList groupIds }
                 .associateBy { it[Groups.id] }
@@ -183,6 +171,18 @@ class GroupService(private val database: Database) {
     private fun generateInviteCode(): String {
         val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
         return (1..10).map { chars.random() }.joinToString("")
+    }
+
+    fun getInviteCode(groupId: Int): String? {
+        return transaction {
+            val group = Groups.select { Groups.id eq groupId }.singleOrNull()
+            if (group == null) {
+                println("Failed invite code get")
+                return@transaction null
+            }
+
+            group[Groups.inviteCode]
+        }
     }
 }
 

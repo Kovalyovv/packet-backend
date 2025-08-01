@@ -11,12 +11,11 @@ import org.joda.time.DateTimeZone
 import ru.packet.models.Activities.defaultExpression
 
 object ChatMessages : Table("chat_messages") {
-    val id = integer("id").autoIncrement()
+    val token = varchar("token", 36)
     val groupId = reference("group_id", Groups.id, onDelete = ReferenceOption.CASCADE)
     val senderId = reference("sender_id", Users.id, onDelete = ReferenceOption.CASCADE)
     val text = text("text")
     val timestamp = datetime("timestamp").default(DateTime.now(DateTimeZone.UTC))
-    val replyToId = integer("reply_to_id").nullable()
-
-    override val primaryKey = PrimaryKey(id, name = "PK_ChatMessages_ID")
+    val replyToToken = varchar("reply_to_token", 36).nullable()
+    override val primaryKey = PrimaryKey(token, name = "PK_ChatMessages_ID")
 }

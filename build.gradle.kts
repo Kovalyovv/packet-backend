@@ -45,6 +45,7 @@ dependencies {
 
     // Logging
     implementation("ch.qos.logback:logback-classic:$logback_version")
+    implementation("io.github.microutils:kotlin-logging-jvm:3.0.5")
 
     // Database
     implementation("com.zaxxer:HikariCP:5.1.0")
@@ -61,7 +62,38 @@ dependencies {
 
     // Other
     implementation("org.mindrot:jbcrypt:0.4")
+}
 
-    // Test
-    testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
+// Test dependencies
+dependencies {
+    // JUnit Jupiter и Platform с явно указанными версиями
+    testImplementation("org.junit.jupiter:junit-jupiter:5.12.0")
+    testImplementation("org.junit.platform:junit-platform-launcher:1.12.0")
+    testImplementation("org.junit.platform:junit-platform-engine:1.12.0")
+    
+    // Mockito
+    testImplementation("org.mockito:mockito-core:4.5.1")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:4.0.0")
+    
+    // Testcontainers с одинаковой версией для всех модулей
+    val testcontainersVersion = "1.17.6"
+    testImplementation("org.testcontainers:testcontainers:$testcontainersVersion")
+    testImplementation("org.testcontainers:postgresql:$testcontainersVersion")
+    testImplementation("org.testcontainers:junit-jupiter:$testcontainersVersion") {
+        // Явно указываем, что используем JUnit Jupiter 5.12.0
+        exclude(group = "org.junit.jupiter", module = "junit-jupiter")
+    }
+
+    // Logging
+    testImplementation("io.github.microutils:kotlin-logging-jvm:3.0.5")
+}
+
+tasks.test {
+    useJUnitPlatform()
+    testLogging {
+        events("passed", "skipped", "failed")
+        showExceptions = true
+        showCauses = true
+        showStackTraces = true
+    }
 }

@@ -1,5 +1,6 @@
 package ru.packet.services
 
+import org.jetbrains.exposed.exceptions.ExposedSQLException
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
@@ -90,7 +91,7 @@ class UserService(private val database: Database) {
     fun findUserById(id: Int): UserDTO? {
         return transaction {
             Users.select { Users.id eq id }
-                .mapNotNull {
+                .singleOrNull()?.let {
                     UserDTO(
                         id = it[Users.id],
                         name = it[Users.name],
@@ -99,18 +100,15 @@ class UserService(private val database: Database) {
                         createdAt = it[Users.createdAt].toString()
                     )
                 }
-                .singleOrNull()
         }
     }
 
     suspend fun saveResetCode(userId: Int, code: String) {
         resetCodes[userId] = code
-        // В продакшене: сохранить в БД с таймером истечения
     }
 
     suspend fun verifyResetCode(code: String): Int? {
         return resetCodes.entries.find { it.value == code }?.key
-        // В продакшене: проверить код в БД и его срок действия
     }
 
     suspend fun updateUserPassword(userId: Int, newPassword: String) {
@@ -118,14 +116,34 @@ class UserService(private val database: Database) {
         transaction {
 
             Users.update({ Users.id eq userId }) {
-                it[passwordHash] = hashedPassword // Предполагается, что пароль уже хэширован
+                it[passwordHash] = hashedPassword
             }
         }
     }
 
     suspend fun clearResetCode(userId: Int) {
         resetCodes.remove(userId)
-        // В продакшене: удалить код из БД
+    }
+
+    fun updateUser(userId: Int, name: String, email: String, password: String?): UserDTO? {
+        return transaction {
+            try {
+                Users.update({ Users.id eq userId }) { update ->
+                    update[Users.name] = name
+                    update[Users.email] = email
+                    if (password != null) {
+                        update[Users.passwordHash] = BCrypt.hashpw(password, BCrypt.gensalt())
+                    }
+                }
+                findUserById(userId)
+            } catch (e: ExposedSQLException) {
+                if (e.cause?.message?.contains("users_email_key") == true) {
+                    throw Exception("Пользователь с таким email уже существует")
+                } else {
+                    throw Exception("Ошибка сервера: ${e.message}")
+                }
+            }
+        }
     }
 
 

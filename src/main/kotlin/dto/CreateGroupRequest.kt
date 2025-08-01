@@ -6,5 +6,5 @@ import kotlinx.serialization.Serializable
 data class CreateGroupRequest(
     val name: String,
     val creatorId: Int,
-    val isPersonal: Boolean? = null // Опциональное поле с дефолтным значением null
+    val isPersonal: Boolean? = null
 )

@@ -65,34 +65,26 @@ fun Application.configureAuthentication() {
 }
 
 fun Application.configureDatabase() {
-    // База данных будет инициализирована через Koin
     getKoin().get<Database>()
 }
 
 fun Application.configureRouting() {
     val chatConnections = ConcurrentHashMap<Int, MutableList<WebSocketSession>>()
-
-
-
-    // Получаем Koin-инстанс вручную
     val koin = getKoin()
 
     routing {
-        println("Registering routes")
         intercept(ApplicationCallPipeline.Call) {
-            println("Received request: ${call.request.uri} with method ${call.request.httpMethod.value}")
             proceed()
         }
         userRoutes(koin.get())
         groupRoutes(koin.get())
-        listRoutes(koin.get<ListService>(), koin.get<GroupService>())
         itemRoutes(koin.get())
-        receiptRoutes(koin.get<ReceiptService>(), koin.get<HttpClient>()) // Передаём оба параметра
+        receiptRoutes(koin.get<ReceiptService>(), koin.get<HttpClient>())
         activityRoutes(koin.get<ActivityService>(), koin.get<GroupService>())
         personalListRoutes(koin.get<ItemService>(), koin.get<PersonalListService>())
         route("/chat") {
             authenticate("auth-jwt") {
-                chatRoutes(chatConnections, koin.get())
+                chatRoutes(chatConnections, koin.get<ChatService>(), koin.get<UserService>())
             }
         }
     }

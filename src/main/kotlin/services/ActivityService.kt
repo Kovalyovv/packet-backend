@@ -14,10 +14,8 @@ class ActivityService(private val database: Database) {
     fun addItemToGroupList(groupId: Int, userId: Int, itemId: Int, quantity: Int, priority: Int, budget: Int?): GroupListItemDTO {
         return transaction(database) {
             val item = Items.select { Items.id eq itemId }.single()
-
             val user = Users.select { Users.id eq userId }.single()
 
-            // Добавляем запись в GroupListItems
             val insertedItem = GroupListItems.insert {
                 it[GroupListItems.groupId] = groupId
                 it[GroupListItems.itemId] = itemId
@@ -26,10 +24,8 @@ class ActivityService(private val database: Database) {
                 it[GroupListItems.budget] = budget
             }
 
-            // Извлекаем id из результата вставки
             val listItemId = insertedItem[GroupListItems.id]
 
-            // Создаём активность ADDED
             Activities.insert {
                 it[Activities.groupId] = groupId
                 it[Activities.userId] = userId
@@ -106,19 +102,14 @@ class ActivityService(private val database: Database) {
         }
     }
 
-
-
-
     fun getGroupSummaries(userId: Int, groupIds: List<Int>): List<GroupSummaryDTO> {
         if (groupIds.isEmpty()) return emptyList()
 
         return transaction(database) {
-            // Получаем все группы одним запросом
             val groupsMap = Groups
                 .select { Groups.id inList groupIds }
                 .associateBy { it[Groups.id] }
 
-            // Получаем последнюю активность для каждой группы
             val lastActivities = Activities
                 .join(Users, JoinType.LEFT, additionalConstraint = { Activities.userId eq Users.id })
                 .join(Items, JoinType.LEFT, additionalConstraint = { Activities.itemId eq Items.id })

@@ -56,18 +56,15 @@ class PersonalListService {
 
         println("Adding item to personal list: userId=$userId, itemId=$itemId, itemName=$itemName, quantity=$quantity, price=$priceItem")
         return transaction {
-            // Ищем товар в таблице items по имени
             val existingItem = Items.select { Items.name eq itemName }.firstOrNull()
             println("Existing item: $existingItem")
 
-            // Если товар найден, используем его id, иначе создаём новый
             val actualItemId = existingItem?.get(Items.id) ?: Items.insert {
                 it[name] = itemName
                 it[price] = price
             }[Items.id]
             println("Actual itemId: $actualItemId")
 
-            // Добавляем товар в personal_list_items с найденным или новым itemId
             val newItem = PersonalListItems.insert {
                 it[PersonalListItems.userId] = userId
                 it[PersonalListItems.itemId] = actualItemId
@@ -93,12 +90,10 @@ class PersonalListService {
 
     fun markAsPurchased(userId: Int, itemId: Int): Boolean {
         return transaction {
-            // Находим элемент в личном списке
             val item = PersonalListItems.select {
                 (PersonalListItems.id eq itemId) and (PersonalListItems.userId eq userId)
             }.firstOrNull() ?: return@transaction false
 
-            // Добавляем в историю покупок с ценой из personalListItems
             PersonalPurchaseHistory.insert {
                 it[PersonalPurchaseHistory.userId] = userId
                 it[PersonalPurchaseHistory.itemId] = item[PersonalListItems.itemId]
@@ -108,7 +103,6 @@ class PersonalListService {
                 it[purchasedAt] = DateTime.now().withZone(DateTimeZone.UTC)
             }
 
-            // Удаляем из личного списка
             PersonalListItems.deleteWhere { PersonalListItems.id eq itemId }
 
             true

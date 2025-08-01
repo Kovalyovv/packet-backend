@@ -13,7 +13,7 @@ import ru.packet.models.Groups.default
 object Users: Table("users" ) {
     val id = integer("id").autoIncrement()
     val name = varchar("name", 40)
-    val email = varchar("email", 40).uniqueIndex()
+    val email = varchar("email", 50).uniqueIndex()
     val passwordHash = text("password_hash")
     val role = text("role")
 

@@ -15,12 +15,13 @@ import ru.packet.dto.GroupSummaryDTO
 import ru.packet.models.Activities
 import ru.packet.models.Groups
 
-
 import ru.packet.services.GroupService
+
+@kotlinx.serialization.Serializable
+data class JoinGroupRequest(val userId: Int, val inviteCode: String)
 
 fun Route.groupRoutes(groupService: GroupService) {
     route("/groups") {
-        // Создание группы
         post {
             val groupRequest = call.receive<CreateGroupRequest>()
             println(groupRequest)
@@ -28,29 +29,31 @@ fun Route.groupRoutes(groupService: GroupService) {
                 name = groupRequest.name,
                 creatorId = groupRequest.creatorId,
                 isPersonal = groupRequest.isPersonal
-
             )
             call.respond(HttpStatusCode.Created, groupDTO)
         }
 
-        // Присоединение к группе по коду
         post("/join") {
             val request = call.receive<JoinGroupRequest>()
             val userId = request.userId
             val inviteCode = request.inviteCode
 
-            val groupDTO = groupService.joinGroup(
-                userId = userId,
-                inviteCode = inviteCode
-            )
-            call.respond(groupDTO)
+            try {
+                val groupDTO = groupService.joinGroup(
+                    userId = userId,
+                    inviteCode = inviteCode
+                )
+                call.respond(HttpStatusCode.OK, groupDTO)
+            } catch (e: IllegalArgumentException) {
+                call.respond(HttpStatusCode.NotFound, mapOf("error" to e.message))
+            } catch (e: IllegalStateException) {
+                call.respond(HttpStatusCode.Conflict, mapOf("error" to e.message))
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, mapOf("error" to "Произошла ошибка на сервере"))
+            }
         }
 
-
-
-
         authenticate("auth-jwt") {
-            // Получение групп пользователя
             get("/{userId}") {
                 val principal = call.principal<JWTPrincipal>()
                 val user_Id = principal?.payload?.getClaim("userId")?.asInt()
@@ -90,12 +93,30 @@ fun Route.groupRoutes(groupService: GroupService) {
                 }
             }
 
+            get("/{groupId}/invite-code") {
+                val principal = call.principal<JWTPrincipal>()
+                val user_Id = principal?.payload?.getClaim("userId")?.asInt()
+                if (user_Id == null) {
+                    call.respond(HttpStatusCode.Unauthorized, ErrorResponse("Недействительный токен"))
+                    return@get
+                }
+                try{
+                    val groupId = call.parameters["groupId"]?.toIntOrNull()
+                        ?: return@get call.respond(HttpStatusCode.BadRequest, "Invalid groupID")
 
+                    val inviteCode = groupService.getInviteCode(groupId)
+                    if (inviteCode == null) {
+                        call.respond(HttpStatusCode.NotFound, ErrorResponse("Инвайт-код не найден"))
+                    } else {
+                        call.respond(inviteCode)
+                    }
+                }catch (e: Exception) {
+                    logger.error("Error getting groupinvite code: ${e.message}", e)
+                    call.respond(HttpStatusCode.InternalServerError, ErrorResponse("Ошибка сервера: ${e.message}"))
+                }
 
+            }
 
         }
     }
 }
-
-@kotlinx.serialization.Serializable
-data class JoinGroupRequest(val userId: Int, val inviteCode: String)

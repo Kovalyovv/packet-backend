@@ -31,19 +31,14 @@ fun Route.userRoutes(userService: UserService) {
             try {
                 val userRequest = call.receive<UserRequest>()
                 logger.info("Register attempt with credentials: $userRequest")
-
-                // Регистрируем пользователя
                 val userDTO = userService.registerUser(
                     name = userRequest.name,
                     email = userRequest.email,
                     password = userRequest.password,
                     role = if (userRequest.role.isEmpty()) "standard" else userRequest.role
                 )
-
-                // Генерируем токены
                 val tokenPair = JwtConfig.generateTokenPair(userDTO.id)
 
-                // Возвращаем LoginResponse
                 call.respond(
                     HttpStatusCode.Created,
                     LoginResponse(
@@ -122,7 +117,15 @@ fun Route.userRoutes(userService: UserService) {
             }
         }
 
-
+        get("/{id}") {
+            val userId = call.parameters["id"]?.toIntOrNull()
+                ?: return@get call.respond(HttpStatusCode.BadRequest, "Invalid userId")
+            val user = userService.findUserById(userId)
+            if (user == null) {
+                return@get call.respond(HttpStatusCode.NotFound, "User not found")
+            }
+            call.respond(user)
+        }
         get {
             val users = userService.getAllUsers()
             call.respond(users)
@@ -220,6 +223,41 @@ fun Route.userRoutes(userService: UserService) {
                 }
 
                 call.respond(user)
+            }
+
+            put("/{id}") {
+                val userId = call.parameters["id"]?.toIntOrNull()
+                    ?: return@put call.respond(HttpStatusCode.BadRequest, "Invalid userId")
+                val principal = call.principal<JWTPrincipal>()
+                val authUserId = principal?.payload?.getClaim("userId")?.asInt()
+                if (authUserId != userId) {
+                    return@put call.respond(HttpStatusCode.Forbidden, "Доступ запрещён")
+                }
+
+                val updateRequest = try {
+                    call.receive<Map<String, String?>>()
+                } catch (e: Exception) {
+                    return@put call.respond(HttpStatusCode.BadRequest, "Неверный формат данных")
+                }
+
+                val name = updateRequest["name"] ?: return@put call.respond(HttpStatusCode.BadRequest, "Имя обязательно")
+                val email = updateRequest["email"] ?: return@put call.respond(HttpStatusCode.BadRequest, "Email обязателен")
+                val password = updateRequest["password"]
+
+                try {
+                    val updatedUser = userService.updateUser(userId, name, email, password)
+                    if (updatedUser != null) {
+                        call.respond(HttpStatusCode.OK, updatedUser)
+                    } else {
+                        call.respond(HttpStatusCode.InternalServerError, "Не удалось обновить пользователя")
+                    }
+                } catch (e: Exception) {
+                    if (e.message?.contains("users_email_key") == true) {
+                        call.respond(HttpStatusCode.Conflict, "Пользователь с таким email уже существует")
+                    } else {
+                        call.respond(HttpStatusCode.InternalServerError, e.message ?: "Ошибка сервера")
+                    }
+                }
             }
         }
 

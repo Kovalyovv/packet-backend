@@ -6,11 +6,9 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.joda.time.DateTime
 import ru.packet.dto.ChatMessageDTO
 import ru.packet.models.ChatMessages
-import java.util.concurrent.ConcurrentHashMap
+import ru.packet.models.GroupMembers
 
 class ChatService(private val database: Database) {
-    private val tempIdMap = ConcurrentHashMap<Int, Int>()
-
     fun getMessagesByGroupId(groupId: Int): List<ChatMessageDTO> {
         if (groupId <= 0) throw IllegalArgumentException("Invalid groupId")
         return transaction {
@@ -18,78 +16,77 @@ class ChatService(private val database: Database) {
                 .orderBy(ChatMessages.timestamp to SortOrder.ASC)
                 .map {
                     val dto = ChatMessageDTO(
-                        id = it[ChatMessages.id],
+                        token = it[ChatMessages.token],
                         groupId = it[ChatMessages.groupId],
                         senderId = it[ChatMessages.senderId],
                         text = it[ChatMessages.text],
                         timestamp = it[ChatMessages.timestamp].toString(),
-                        replyToId = it[ChatMessages.replyToId]
+                        replyToToken = it[ChatMessages.replyToToken]
                     )
-                    println("ChatService: Sending message: $dto")
+
                     dto
                 }
             println("ChatService: Returning ${messages.size} messages for group $groupId")
             messages
         }
     }
+    fun getChatUserIds(groupId: Int): List<Int> {
+        if (groupId <= 0) throw IllegalArgumentException("Invalid groupId")
+        return transaction {
+            GroupMembers.select { GroupMembers.group eq groupId }
+                .map { it[GroupMembers.user] }
+                .distinct()
+        }
+    }
 
     fun saveMessage(
+        token: String,
         groupId: Int,
         senderId: Int,
         text: String,
         timestamp: String,
-        replyToId: Int? = null,
-        tempId: Int? = null
+        replyToToken: String? = null
     ): ChatMessageDTO {
         if (groupId <= 0) throw IllegalArgumentException("Invalid groupId")
         if (senderId <= 0) throw IllegalArgumentException("Invalid senderId")
         if (text.isBlank()) throw IllegalArgumentException("Message text cannot be blank")
+        if (token.isBlank()) throw IllegalArgumentException("Token cannot be blank")
 
         return transaction {
-            val validReplyToId = replyToId?.let { id ->
-                if (id < 0) {
-                    tempIdMap[id]?.takeIf { permanentId ->
-                        ChatMessages.select { ChatMessages.id eq permanentId }.count() > 0
-                    }
-                } else {
-                    if (ChatMessages.select { ChatMessages.id eq id }.count() > 0) id else null
-                }
+            val validReplyToToken = replyToToken?.let { rToken ->
+                if (ChatMessages.select { ChatMessages.token eq rToken }.count() > 0) rToken else null
             }
 
-            val messageId = ChatMessages.insert {
+            if (ChatMessages.select { ChatMessages.token eq token }.count() > 0) {
+                throw IllegalArgumentException("Token $token already exists")
+            }
+
+            ChatMessages.insert {
+                it[ChatMessages.token] = token
                 it[ChatMessages.groupId] = groupId
                 it[ChatMessages.senderId] = senderId
                 it[ChatMessages.text] = text
                 it[ChatMessages.timestamp] = DateTime.parse(timestamp)
-                it[ChatMessages.replyToId] = validReplyToId
-            }[ChatMessages.id]
-
-            if (tempId != null && tempId <= 0) {
-                tempIdMap[tempId] = messageId
-                println("ChatService: Mapped tempId=$tempId to permanentId=$messageId")
+                it[ChatMessages.replyToToken] = validReplyToToken
             }
 
             val savedMessage = ChatMessageDTO(
-                id = messageId,
+                token = token,
                 groupId = groupId,
                 senderId = senderId,
                 text = text,
                 timestamp = timestamp,
-                replyToId = validReplyToId
+                replyToToken = validReplyToToken
             )
             println("ChatService: Saved message: $savedMessage")
             savedMessage
         }
     }
 
-    fun deleteMessage(messageId: Int) {
-        if (messageId <= 0) throw IllegalArgumentException("Invalid messageId")
+    fun deleteMessage(token: String) {
+        if (token.isBlank()) throw IllegalArgumentException("Invalid token")
         transaction {
-            ChatMessages.deleteWhere { ChatMessages.id eq messageId }
+            ChatMessages.deleteWhere { ChatMessages.token eq token }
         }
-    }
-
-    fun clearTempIdMap() {
-        tempIdMap.clear()
     }
 }

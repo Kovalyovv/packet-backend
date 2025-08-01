@@ -71,37 +71,7 @@ fun Route.activityRoutes(activityService: ActivityService, groupService: GroupSe
                     call.respond(HttpStatusCode.BadRequest, ErrorResponse("Ошибка добавления товара: ${e.message}"))
                 }
             }
-            post("/{groupId}/items") {
-                val principal = call.principal<JWTPrincipal>()
-                val userId = principal?.payload?.getClaim("userId")?.asInt()
-                val groupId = call.parameters["groupId"]?.toIntOrNull()
-                if (userId == null || groupId == null) {
-                    call.respond(HttpStatusCode.BadRequest, ErrorResponse("Неверный запрос"))
-                    return@post
-                }
 
-                val groups = groupService.getUserGroups(userId)
-                if (groups.none { it.id == groupId }) {
-                    call.respond(HttpStatusCode.Forbidden, ErrorResponse("Доступ к группе запрещён"))
-                    return@post
-                }
-
-                try {
-                    val request = call.receive<AddItemRequest>()
-                    val item = activityService.addItemToGroupList(
-                        groupId = groupId,
-                        userId = userId,
-                        itemId = request.itemId,
-                        quantity = request.quantity,
-                        priority = request.priority,
-                        budget = request.budget
-                    )
-                    call.respond(HttpStatusCode.Created, item)
-                } catch (e: Exception) {
-                    logger.error("Add item error: ${e.message}", e)
-                    call.respond(HttpStatusCode.BadRequest, ErrorResponse("Ошибка добавления товара: ${e.message}"))
-                }
-            }
 
             post("/{groupId}/items/{itemId}/buy") {
                 val principal = call.principal<JWTPrincipal>()

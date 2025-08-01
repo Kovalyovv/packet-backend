@@ -8,7 +8,7 @@ import io.ktor.server.auth.jwt.*
 import java.util.*
 
 object JwtConfig {
-    private const val SECRET = "packet_secret" // Замените на свой секретный ключ
+    private const val SECRET = "packet_secret"
     private const val ISSUER = "http://localhost:8080/"
     private const val AUDIENCE = "http://localhost:8080/"
     const val REALM = "Access to protected routes"

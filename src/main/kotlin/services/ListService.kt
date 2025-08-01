@@ -16,17 +16,14 @@ class ListService(private val database: Database) {
         budget: Int?
     ): GroupListItemDTO {
         return transaction(database) {
-            // Вставляем запись в GroupListItems
             val insertedItemId = GroupListItems.insert {
                 it[GroupListItems.groupId] = groupId
                 it[GroupListItems.itemId] = itemId
                 it[GroupListItems.quantity] = quantity
                 it[GroupListItems.priority] = priority
                 it[GroupListItems.budget] = budget
-
             }[GroupListItems.id]
 
-            // Извлекаем вставленную запись с JOIN на Items
             val insertedItem = GroupListItems
                 .join(Items, JoinType.LEFT, additionalConstraint = { GroupListItems.itemId eq Items.id })
                 .select { GroupListItems.id eq insertedItemId }
@@ -36,11 +33,10 @@ class ListService(private val database: Database) {
                 id = insertedItem[GroupListItems.id],
                 groupId = insertedItem[GroupListItems.groupId],
                 itemId = insertedItem[GroupListItems.itemId],
-                itemName = insertedItem[Items.name] ?: "Unknown", // Извлекаем название товара
+                itemName = insertedItem[Items.name] ?: "Unknown",
                 quantity = insertedItem[GroupListItems.quantity],
                 priority = insertedItem[GroupListItems.priority],
-                budget = insertedItem[GroupListItems.budget],
-
+                budget = insertedItem[GroupListItems.budget]
             )
         }
     }
@@ -135,16 +131,13 @@ class ListService(private val database: Database) {
             }
 
             if (remainingQuantity == 0) {
-                // Если всё количество куплено, удаляем запись
                 GroupListItems.deleteWhere { GroupListItems.id eq itemId }
             } else {
-                // Если куплено частично, обновляем количество
                 GroupListItems.update({ GroupListItems.id eq itemId }) {
                     it[quantity] = remainingQuantity
                 }
             }
 
-            // Добавляем запись в Activities с типом BOUGHT
             Activities.insert {
                 it[Activities.groupId] = buyRequest.groupId
                 it[Activities.userId] = buyRequest.boughtBy
